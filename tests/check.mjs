@@ -1,6 +1,6 @@
 import puppeteer from "puppeteer-core";
 import fs from "node:fs";
-const FILE = "file:///workspace/santa-rita-match/index.html";
+const FILE = "file:///workspace/index.html";
 const TEL = "tel:+16103719767";
 const MAP = "https://www.google.com/maps/search/?api=1&query=Santa%20Rita%20Grocery%201053%20Cotton%20St%2C%20Reading%2C%20PA%2019602";
 const widths = [[320,568],[375,667],[390,844],[768,1024],[1024,768],[1440,900]];
@@ -20,7 +20,7 @@ const base = await page.evaluate(() => ({
   calls: [...document.querySelectorAll("a.call")].map(a=>a.getAttribute("href")),
   dirs: [...document.querySelectorAll("a.directions")].map(a=>a.getAttribute("href")),
   robots: document.querySelector('meta[name="robots"]').content,
-  details: document.querySelector(".sources").textContent.toLowerCase()
+  details: (document.body.innerText || "").toLowerCase()
 }));
 if (!base.h1.includes("Santa Rita Grocery") || !base.h1.includes("Cotton Street") || !base.h1.includes("Reading PA")) fail("h1 "+base.h1);
 if (!base.calls.length || base.calls.some(h=>h!==TEL)) fail("tel");
@@ -28,14 +28,14 @@ if (!base.dirs.length || base.dirs.some(h=>h!==MAP)) fail("maps");
 if (!/noindex/.test(base.robots)) fail("noindex");
 for (const w of ["order now","chef","catering","testimonial","$"]) if (base.text.includes(w)) fail("banned "+w);
 if (!base.text.includes("find us on cotton street")) fail("invite");
-if (!base.details.includes("not a menu")) fail("sources");
+if (base.text.includes("doordash") || base.text.includes("uber eats")) fail("source label");
 await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));
 await new Promise(r=>setTimeout(r,400));
 const imgs = await page.evaluate(() => [...document.images].filter(i=>i.src && !i.closest("dialog")).map(i => ({
   n:(i.currentSrc||i.src).split("/").pop(), w:i.naturalWidth, h:i.naturalHeight, c:i.complete, r:Math.round(i.getBoundingClientRect().width)
 })));
 notes.push(JSON.stringify(imgs.map(i=>i.n+":"+i.w+"x"+i.r)));
-const caps = { "pastry-plate.png":1088, "sandwich-board.png":720, "fries-tray.png":726, "storefront-madame-google-maps.jpg":1060, "pastelito-plate-doordash.jpg":1186, "grilled-sandwich-board-doordash.jpg":732, "combo-platter-ubereats.jpg":789 };
+const caps = { "pastry-plate.png":1088, "sandwich-board.png":707, "fries-tray.png":659, "storefront-madame-google-maps.jpg":1060, "card-pastry.png":300, "card-sandwich.png":313, "card-fries.png":291 };
 for (const im of imgs) {
   if (!im.c || im.w<2) fail("dead "+im.n);
   if (caps[im.n] && im.w!==caps[im.n]) fail("natural "+im.n+" "+im.w);
@@ -104,7 +104,7 @@ if(tf!=="none") fail("motion "+tf);
 await page.click(".card");
 await new Promise(r=>setTimeout(r,200));
 const lb=await page.evaluate(()=>({o:document.getElementById("viewer").open,w:document.getElementById("viewer-img").naturalWidth}));
-if(!lb.o||lb.w!==1186) fail("lb "+JSON.stringify(lb));
+if(!lb.o||lb.w!==1088) fail("lb "+JSON.stringify(lb));
 await page.keyboard.press("Escape");
 if(bad.length) fail(bad.join(" | "));
 fs.mkdirSync("/opt/cursor/artifacts",{recursive:true});
@@ -121,6 +121,6 @@ await page.addStyleTag({content:"body{position:relative}.dock{position:absolute!
 await page.screenshot({path:"/opt/cursor/artifacts/mobile-reference-match.png", fullPage:true});
 await browser.close();
 const md=["# Reference-match test","",failures.length?failures.map(f=>"- "+f).join("\n"):"No failures.","",...notes.map(n=>"- "+n)].join("\n");
-fs.writeFileSync("/workspace/santa-rita-match/sources/TEST-RESULTS.md", md+"\n");
+fs.writeFileSync("/workspace/sources/TEST-RESULTS.md", md+"\n");
 console.log(md);
 if(failures.length) process.exit(1);
